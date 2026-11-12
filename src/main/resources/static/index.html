@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Connect-4 AI (Minimax + Alpha-Beta)</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; margin-top: 30px; }
+        .controls { margin-bottom: 15px; display: flex; gap: 15px; align-items: center; }
+        select, button { padding: 8px 14px; font-size: 15px; border-radius: 6px; border: none; cursor: pointer; }
+        button { background: #2563eb; color: white; font-weight: bold; }
+        button:hover { background: #1d4ed8; }
+        #board { display: grid; grid-template-columns: repeat(7, 65px); gap: 8px; background: #1e3a8a; padding: 12px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+        .cell { width: 65px; height: 65px; background: #121212; border-radius: 50%; cursor: pointer; transition: background 0.2s; }
+        .cell.human { background: #ef4444; } /* Red */
+        .cell.ai { background: #facc15; }    /* Yellow */
+        #status { font-size: 20px; font-weight: bold; margin: 15px 0; }
+        .metrics { background: #1f2937; padding: 10px 20px; border-radius: 8px; font-size: 14px; color: #9ca3af; }
+        .metrics span { color: #38bdf8; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>Connect-4 AI Engine</h2>
+
+    <div class="controls">
+        <label>AI Search Depth:
+            <select id="depth">
+                <option value="2">Easy (Depth 2)</option>
+                <option value="4">Medium (Depth 4)</option>
+                <option value="6" selected>Hard (Depth 6)</option>
+            </select>
+        </label>
+        <button onclick="resetGame()">New Game</button>
+    </div>
+
+    <div id="status">Your Turn (Red)</div>
+    <div id="board"></div>
+
+    <div class="metrics" style="margin-top: 15px;">
+        Nodes Evaluated: <span id="nodes">0</span> | AI Think Time: <span id="time">0</span> ms
+    </div>
+
+    <script>
+        let board = Array.from({ length: 6 }, () => Array(7).fill(0));
+        let gameOver = false;
+        let isThinking = false;
+
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            for (let r = 0; r < 6; r++) {
+                for (let c = 0; c < 7; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    if (board[r][c] === 1) cell.classList.add('human');
+                    if (board[r][c] === 2) cell.classList.add('ai');
+                    cell.onclick = () => handleMove(c);
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        async function handleMove(col) {
+            if (gameOver || isThinking || board[0][col] !== 0) return;
+
+            isThinking = true;
+            document.getElementById('status').innerText = "AI is thinking...";
+
+            const depth = parseInt(document.getElementById('depth').value);
+
+            const response = await fetch('/api/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ board, col, depth })
+            });
+
+            const data = await response.json();
+            board = data.board;
+            renderBoard();
+
+            document.getElementById('nodes').innerText = data.nodesEvaluated.toLocaleString();
+            document.getElementById('time').innerText = data.executionTimeMs;
+
+            if (data.winner === "HUMAN") {
+                document.getElementById('status').innerText = "You Win!";
+                gameOver = true;
+            } else if (data.winner === "AI") {
+                document.getElementById('status').innerText = "AI Wins!";
+                gameOver = true;
+            } else if (data.winner === "DRAW") {
+                document.getElementById('status').innerText = "It's a Draw!";
+                gameOver = true;
+            } else {
+                document.getElementById('status').innerText = "Your Turn (Red)";
+            }
+
+            isThinking = false;
+        }
+
+        function resetGame() {
+            board = Array.from({ length: 6 }, () => Array(7).fill(0));
+            gameOver = false;
+            isThinking = false;
+            document.getElementById('status').innerText = "Your Turn (Red)";
+            document.getElementById('nodes').innerText = "0";
+            document.getElementById('time').innerText = "0";
+            renderBoard();
+        }
+
+        renderBoard();
+    </script>
+</body>
+</html>
